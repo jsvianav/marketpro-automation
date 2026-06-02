@@ -1,0 +1,329 @@
+import { Given, When, Then } from '@cucumber/cucumber';
+import { expect } from '@playwright/test';
+import { CustomWorld } from '../src/world/CustomWorld';
+import { LoginPage } from '../src/pages/LoginPage';
+import { RegisterPage } from '../src/pages/RegisterPage';
+import { ExcelHelper } from '../src/utils/ExcelHelper';
+
+// Referencia de valor: evita que TypeScript elida el import de CustomWorld
+// (que solo aparece como anotación de tipo en los callbacks de step).
+void CustomWorld;
+
+// ─── E-P-03: Login exitoso ────────────────────────────────────────────────
+
+Given(
+  'el usuario registrado {string} con contraseña {string} existe en el sistema',
+  async function (this: CustomWorld, _email: string, _password: string) {
+    // Precondición documentada — la cuenta ya existe en el sitio de prueba
+  },
+);
+
+When('navega a la página de login de MarketPro+', async function (this: CustomWorld) {
+  const loginPage = new LoginPage(this.page);
+  await loginPage.open();
+});
+
+When(
+  'ingresa el correo {string} y la contraseña {string}',
+  async function (this: CustomWorld, email: string, password: string) {
+    this.testData['email'] = email;
+    this.testData['password'] = password;
+    // Usar selectores por ID verificados en opencart.abstracta.us
+    await this.page.locator('#input-email').fill(email);
+    await this.page.locator('#input-password').fill(password);
+  },
+);
+
+When('hace clic en el botón de iniciar sesión', async function (this: CustomWorld) {
+  // Medir solo el tiempo de autenticación del servidor:
+  //   clic → servidor autentica → 302 redirect → URL cambia a account/account
+  // Promise.race resuelve en el primer evento: éxito (URL) o error (alert de lockout).
+  this.startTime = Date.now();
+  await this.page.locator('input[type="submit"]').first().click();
+
+  const outcome = await Promise.race([
+    this.page
+      .waitForURL((url) => url.href.includes('account/account'), {
+        timeout: 20_000,
+        waitUntil: 'commit',   // para el timer en cuanto el server confirma el redirect
+      })
+      .then(() => 'success' as const),
+
+    this.page
+      .locator('.alert-danger')
+      .waitFor({ state: 'visible', timeout: 20_000 })
+      .then(() => 'error' as const),
+  ]);
+
+  // Parar el timer — este es el tiempo real de respuesta del servidor
+  this.testData['loginElapsedMs'] = Date.now() - this.startTime;
+
+  if (outcome === 'error') {
+    const alertText = (await this.page.locator('.alert-danger').textContent().catch(() => '')) ?? '';
+    throw new Error(
+      `La cuenta esta BLOQUEADA o las credenciales son incorrectas.\n` +
+      `Mensaje del sistema: ${alertText.trim()}`,
+    );
+  }
+});
+
+Then('el sistema concede acceso al panel principal', async function (this: CustomWorld) {
+  // Restringir al #content para evitar el h5 del footer que también dice "My Account"
+  const heading = this.page.locator('#content').getByRole('heading', { name: 'My Account' });
+  await expect(heading).toBeVisible({ timeout: 15_000 });
+});
+
+Then('el nombre del usuario es visible en la pantalla', async function (this: CustomWorld) {
+  // Cuando está logueado, #top-links muestra el botón desplegable "My Account".
+  // El enlace "Logout" está dentro del dropdown (oculto hasta abrir el menú),
+  // así que verificamos el toggle visible que confirma que la sesión está activa.
+  const myAccountToggle = this.page.locator('#top-links .dropdown-toggle').first();
+  await expect(myAccountToggle).toBeVisible({ timeout: 10_000 });
+});
+
+Then(
+  'el acceso ocurre en menos de {int} milisegundos',
+  async function (this: CustomWorld, maxMs: number) {
+    // Usar el tiempo guardado exactamente al completar la navegación (waitForURL),
+    // no el tiempo acumulado de todos los steps posteriores.
+    const elapsed = (this.testData['loginElapsedMs'] as number | undefined) ?? this.elapsedMs();
+    expect(
+      elapsed,
+      `El login tardó ${elapsed}ms (clic → dashboard). Máximo permitido: ${maxMs}ms`,
+    ).toBeLessThan(maxMs);
+  },
+);
+
+// ─── E-N-03: Bloqueo por fuerza bruta (documenta DEF-001) ────────────────
+
+Given(
+  'el usuario {string} está registrado en el sistema',
+  async function (this: CustomWorld, _email: string) {
+    // E-N-03 usa una cuenta DESECHABLE con timestamp para no bloquear test5@testing.com.
+    // Así E-P-03 puede correr en el mismo suite sin verse afectado por el lockout de E-N-03.
+    const bruteEmail = `bruteforce_${Date.now()}@test.com`;
+    const brutePass  = 'BruteSetup@2024!';
+
+    // Crear la cuenta desechable para los intentos de fuerza bruta
+    await this.page.goto(`${this.baseUrl}/index.php?route=account/register`);
+    await this.page.waitForLoadState('load');
+    await this.page.locator('#input-firstname').fill('Brute');
+    await this.page.locator('#input-lastname').fill('Force');
+    await this.page.locator('#input-email').fill(bruteEmail);
+    await this.page.locator('#input-telephone').fill('3000000000');
+    await this.page.locator('#input-password').fill(brutePass);
+    await this.page.locator('#input-confirm').fill(brutePass);
+    await this.page.locator('input[name="agree"]').check();
+    await this.page.locator('input[type="submit"]').first().click();
+    await this.page.waitForLoadState('load');
+
+    // Almacenar credenciales de la cuenta desechable para los siguientes steps
+    this.testData['bruteEmail'] = bruteEmail;
+    this.testData['brutePass']  = brutePass;
+
+    // Cerrar sesión: el registro en OpenCart deja al usuario logueado automáticamente,
+    // lo que causaría que la página de login redireccione a account/account.
+    await this.page.goto(`${this.baseUrl}/index.php?route=account/logout`);
+    await this.page.waitForLoadState('load');
+  },
+);
+
+When(
+  'intenta iniciar sesión {int} veces consecutivas con la contraseña incorrecta {string}',
+  async function (this: CustomWorld, attempts: number, wrongPassword: string) {
+    const loginPage = new LoginPage(this.page);
+    await loginPage.open();
+    // Usar la cuenta desechable registrada en el Given
+    const email = this.testData['bruteEmail'] as string;
+    await loginPage.attemptMultipleFailedLogins(email, wrongPassword, attempts);
+    this.testData['attemptsCompleted'] = attempts;
+  },
+);
+
+Then(
+  'el sistema debe mostrar un mensaje de bloqueo de cuenta',
+  async function (this: CustomWorld) {
+    // OpenCart muestra "exceeded" en el INTENTO 6, no en el 5.
+    // Tras los 5 intentos fallidos del When, hacemos un intento 6 extra
+    // (contraseña incorrecta) para disparar el mensaje de bloqueo.
+    const loginPage = new LoginPage(this.page);
+    const bruteEmail = this.testData['bruteEmail'] as string;
+    await loginPage.loginWithInvalidCredentials(bruteEmail, 'intento_6_trigger');
+
+    const isLocked = await loginPage.isLockedOut();
+
+    if (!isLocked) {
+      const errorMsg = await loginPage.getErrorMessage().catch(() => '(sin mensaje)');
+      throw new Error(
+        `[DEF-001 ACTIVO] El sistema NO bloqueó la cuenta tras 5 intentos fallidos.\n` +
+          `Mensaje en intento 6: "${errorMsg.trim()}"\n` +
+          `Este fallo DOCUMENTA el defecto DEF-001: ausencia de mecanismo anti-fuerza-bruta.\n` +
+          `El test pasará cuando el sitio implemente bloqueo por intentos fallidos.`,
+      );
+    }
+  },
+);
+
+Then(
+  'el usuario no puede iniciar sesión con credenciales correctas en el intento número {int}',
+  async function (this: CustomWorld, _attemptNumber: number) {
+    const loginPage = new LoginPage(this.page);
+    await loginPage.open();
+    const email    = this.testData['bruteEmail'] as string;  // cuenta desechable
+    const password = this.testData['brutePass']  as string;  // contraseña real de esa cuenta
+
+    await this.page.locator('#input-email').fill(email);
+    await this.page.locator('#input-password').fill(password);
+    await this.page.locator('input[type="submit"]').first().click();
+    await this.page.waitForLoadState('load');
+
+    const currentUrl = this.page.url();
+    const loggedIn = currentUrl.includes('account/account');
+
+    if (loggedIn) {
+      throw new Error(
+        `[DEF-001 ACTIVO] El sistema PERMITIÓ el intento ${_attemptNumber} con credenciales ` +
+          `correctas tras 5 intentos fallidos. La cuenta debería estar bloqueada.`,
+      );
+    }
+
+    const errorAlert = this.page.locator('.alert-danger');
+    await expect(errorAlert).toBeVisible({ timeout: 10_000 });
+  },
+);
+
+// ─── E-P-01: Registro exitoso (datos del Excel) ──────────────────────────
+
+Given(
+  'el usuario no tiene cuenta registrada en el sistema',
+  async function (this: CustomWorld) {
+    // Precondición satisfecha: los emails en el Excel incluyen <timestamp> único
+  },
+);
+
+When('navega al formulario de registro', async function (this: CustomWorld) {
+  const registerPage = new RegisterPage(this.page);
+  await registerPage.open();
+});
+
+When(
+  'completa el formulario con los datos del archivo Excel fila {int}',
+  async function (this: CustomWorld, row: number) {
+    const excel = new ExcelHelper();
+    const data = await excel.readRow('Registro', row);
+
+    this.testData['registrationData'] = data;
+    this.testData['registeredEmail'] = data['email'];
+
+    const registerPage = new RegisterPage(this.page);
+    await registerPage.fillRegistrationForm({
+      firstName: data['nombre'] ?? '',
+      lastName: data['apellido'] ?? '',
+      email: data['email'] ?? '',
+      telephone: data['telefono'] ?? '',
+      password: data['contrasena'] ?? '',
+      confirmPassword: data['confirmacion'] ?? '',
+    });
+  },
+);
+
+When('acepta la política de privacidad', async function (this: CustomWorld) {
+  const registerPage = new RegisterPage(this.page);
+  await registerPage.acceptPrivacyPolicy();
+});
+
+When('hace clic en continuar', async function (this: CustomWorld) {
+  const registerPage = new RegisterPage(this.page);
+  await registerPage.submitForm();
+});
+
+Then('el sistema confirma el registro exitoso', async function (this: CustomWorld) {
+  const registerPage = new RegisterPage(this.page);
+  const success = await registerPage.isRegistrationSuccessful();
+  expect(success).toBe(true);
+});
+
+Then(
+  'el usuario es redirigido a su panel de bienvenida',
+  async function (this: CustomWorld) {
+    // opencart.abstracta.us muestra "Congratulations!" en el contenido de account/success
+    await expect(
+      this.page.locator('#content', { hasText: /congratulations/i }),
+    ).toBeVisible({ timeout: 15_000 });
+  },
+);
+
+Then(
+  'un email de confirmación es enviado a la dirección registrada',
+  async function (this: CustomWorld) {
+    // El sitio demo no permite verificar el envío real de email.
+    // Se valida que el flujo terminó en la URL de success.
+    const url = this.page.url();
+    expect(url).toContain('account/success');
+  },
+);
+
+// ─── E-N-01: Rechazo correo duplicado (documenta DEF-003) ────────────────
+
+Given(
+  'el correo {string} ya está registrado en el sistema',
+  async function (this: CustomWorld, email: string) {
+    this.testData['duplicateEmail'] = email;
+  },
+);
+
+When(
+  'un nuevo usuario intenta registrarse con el mismo correo {string}',
+  async function (this: CustomWorld, email: string) {
+    const registerPage = new RegisterPage(this.page);
+    await registerPage.open();
+    await registerPage.fillRegistrationForm({
+      firstName: 'Test',
+      lastName: 'Duplicado',
+      email: email,
+      telephone: '3001234567',
+      password: 'TestPass@2024!',
+      confirmPassword: 'TestPass@2024!',
+    });
+    await registerPage.acceptPrivacyPolicy();
+    await registerPage.submitForm();
+  },
+);
+
+Then(
+  'el sistema debe mostrar un mensaje de error de correo duplicado',
+  async function (this: CustomWorld) {
+    const errorAlert = this.page.locator('.alert-danger');
+    await expect(errorAlert).toBeVisible({ timeout: 10_000 });
+    const errorText = (await errorAlert.textContent()) ?? '';
+    const hasEmailError =
+      errorText.toLowerCase().includes('already') ||
+      errorText.toLowerCase().includes('registr') ||
+      errorText.toLowerCase().includes('exist') ||
+      errorText.toLowerCase().includes('email') ||
+      errorText.toLowerCase().includes('warning');
+
+    if (!hasEmailError) {
+      throw new Error(
+        `[DEF-003] Mensaje de error inesperado para correo duplicado: "${errorText.trim()}"`,
+      );
+    }
+  },
+);
+
+Then(
+  'no debe crear una segunda cuenta con ese correo',
+  async function (this: CustomWorld) {
+    const url = this.page.url();
+    expect(url).not.toContain('account/success');
+  },
+);
+
+Then(
+  'el formulario debe permanecer en la página de registro',
+  async function (this: CustomWorld) {
+    const registerPage = new RegisterPage(this.page);
+    const onPage = await registerPage.isStillOnRegistrationPage();
+    expect(onPage).toBe(true);
+  },
+);

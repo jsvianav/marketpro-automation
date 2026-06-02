@@ -1,0 +1,27 @@
+{
+  "name": "marketpro-automation",
+  "version": "1.0.0",
+  "description": "Automatización de pruebas MarketPro+ sobre OpenCart Demo — Playwright + Cucumber + TypeScript",
+  "scripts": {
+    "test": "cucumber-js",
+    "test:report": "cucumber-js --format html:reports/report.html",
+    "test:autenticacion": "cucumber-js --tags @autenticacion",
+    "test:campanas": "cucumber-js --tags @campanas",
+    "create-data": "ts-node scripts/create-excel.ts",
+    "lint": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cucumber/cucumber": "^10.8.0",
+    "@cucumber/html-formatter": "^21.7.0",
+    "@cucumber/pretty-formatter": "^1.0.1",
+    "@playwright/test": "^1.48.0",
+    "@types/node": "^22.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.0"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
+    "playwright": "^1.48.0"
+  }
+}
