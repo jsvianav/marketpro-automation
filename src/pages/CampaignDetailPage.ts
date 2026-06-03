@@ -1,4 +1,4 @@
-import { Page, expect } from '@playwright/test';
+import { Page } from 'playwright';
 import { BasePage } from './BasePage';
 
 export class CampaignDetailPage extends BasePage {
@@ -12,14 +12,14 @@ export class CampaignDetailPage extends BasePage {
   }
 
   async setQuantity(quantity: number): Promise<void> {
-    await expect(this.quantityInput).toBeVisible({ timeout: 15_000 });
+    await this.quantityInput.waitFor({ state: 'visible', timeout: 15_000 });
     await this.quantityInput.fill(String(quantity));
   }
 
   async addToCart(): Promise<void> {
-    await expect(this.addToCartButton).toBeVisible({ timeout: 15_000 });
+    await this.addToCartButton.waitFor({ state: 'visible', timeout: 15_000 });
     await this.addToCartButton.click();
-    await expect(this.cartSuccessAlert).toBeVisible({ timeout: 15_000 });
+    await this.cartSuccessAlert.waitFor({ state: 'visible', timeout: 15_000 });
   }
 
   async getCartSuccessMessage(): Promise<string> {

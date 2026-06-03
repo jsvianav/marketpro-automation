@@ -1,4 +1,4 @@
-import { Page, expect } from '@playwright/test';
+import { Page } from 'playwright';
 import { BasePage } from './BasePage';
 
 /**
@@ -65,11 +65,11 @@ export class CheckoutPage extends BasePage {
 
     if (hasExisting) {
       // Cuenta con dirección guardada — ya viene seleccionada, solo continuar
-      await expect(this.paymentAddressButton).toBeVisible({ timeout: 15_000 });
+      await this.paymentAddressButton.waitFor({ state: 'visible', timeout: 15_000 });
       await this.paymentAddressButton.click();
     } else {
       // Cuenta nueva sin dirección — rellenar formulario
-      await expect(this.firstNameInput).toBeVisible({ timeout: 15_000 });
+      await this.firstNameInput.waitFor({ state: 'visible', timeout: 15_000 });
       await this.firstNameInput.fill('MarketPro');
       await this.lastNameInput.fill('User');
       await this.address1Input.fill('Calle 10 # 5-20');
@@ -87,7 +87,7 @@ export class CheckoutPage extends BasePage {
       );
       await this.zoneSelect.selectOption({ index: 1 });
 
-      await expect(this.paymentAddressButton).toBeVisible({ timeout: 15_000 });
+      await this.paymentAddressButton.waitFor({ state: 'visible', timeout: 15_000 });
       await this.paymentAddressButton.click();
     }
 
@@ -99,12 +99,12 @@ export class CheckoutPage extends BasePage {
     if (agreeVisible) {
       await this.agreeCheckbox.check();
     }
-    await expect(this.paymentMethodButton).toBeVisible({ timeout: 15_000 });
+    await this.paymentMethodButton.waitFor({ state: 'visible', timeout: 15_000 });
     await this.paymentMethodButton.click();
 
     // Esperar panel de confirmación
     await this.waitForPanelContent('collapse-checkout-confirm');
-    await expect(this.confirmButton).toBeVisible({ timeout: 15_000 });
+    await this.confirmButton.waitFor({ state: 'visible', timeout: 15_000 });
     await this.confirmButton.click();
 
     // Esperar navegación a la página de éxito
@@ -120,11 +120,11 @@ export class CheckoutPage extends BasePage {
    * La página de éxito de OpenCart no muestra el ID directamente.
    */
   async getOrderConfirmationNumber(): Promise<string> {
-    await expect(this.successHeading).toBeVisible({ timeout: 15_000 });
+    await this.successHeading.waitFor({ state: 'visible', timeout: 15_000 });
     await this.navigate('/index.php?route=account/order');
 
     const firstRow = this.page.locator('table tbody tr').first();
-    await expect(firstRow).toBeVisible({ timeout: 15_000 });
+    await firstRow.waitFor({ state: 'visible', timeout: 15_000 });
     const rowText = (await firstRow.textContent()) ?? '';
     const match = rowText.match(/#(\d+)/);
     return match ? match[1] : 'N/A';

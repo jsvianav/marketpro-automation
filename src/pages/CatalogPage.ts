@@ -1,4 +1,4 @@
-import { Page, expect } from '@playwright/test';
+import { Page } from 'playwright';
 import { BasePage } from './BasePage';
 import { CampaignDetailPage } from './CampaignDetailPage';
 
@@ -14,7 +14,7 @@ export class CatalogPage extends BasePage {
   async openCampaign(name: string): Promise<CampaignDetailPage> {
     // Los links de productos están en .product-thumb h4 a
     const productLink = this.page.locator('.product-thumb h4 a', { hasText: name }).first();
-    await expect(productLink).toBeVisible({ timeout: 15_000 });
+    await productLink.waitFor({ state: 'visible', timeout: 15_000 });
     await productLink.click();
     await this.waitForPageLoad();
     return new CampaignDetailPage(this.page);

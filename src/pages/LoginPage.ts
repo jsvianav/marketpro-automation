@@ -1,4 +1,4 @@
-import { Page, expect } from '@playwright/test';
+import { Page } from 'playwright';
 import { BasePage } from './BasePage';
 import { HomePage } from './HomePage';
 
@@ -16,11 +16,11 @@ export class LoginPage extends BasePage {
 
   async open(): Promise<void> {
     await this.navigate('/index.php?route=account/login');
-    await expect(this.emailInput).toBeVisible({ timeout: 20_000 });
+    await this.emailInput.waitFor({ state: 'visible', timeout: 20_000 });
   }
 
   async login(email: string, password: string): Promise<HomePage> {
-    await expect(this.emailInput).toBeVisible({ timeout: 20_000 });
+    await this.emailInput.waitFor({ state: 'visible', timeout: 20_000 });
     await this.emailInput.fill(email);
     await this.passwordInput.fill(password);
     await this.submitButton.click();
@@ -28,8 +28,29 @@ export class LoginPage extends BasePage {
     return new HomePage(this.page);
   }
 
+  /** Rellena los campos sin hacer clic — permite controlar el clic desde el step */
+  async fillCredentials(email: string, password: string): Promise<void> {
+    await this.emailInput.waitFor({ state: 'visible', timeout: 20_000 });
+    await this.emailInput.fill(email);
+    await this.passwordInput.fill(password);
+  }
+
+  /** Hace clic en el botón de submit y devuelve el locator de error para Promise.race externo */
+  get submitBtn() { return this.submitButton; }
+  get errorAlertLocator() { return this.errorAlert; }
+
+  /** Verifica que el heading de la cuenta sea visible */
+  async isAccountPageVisible(): Promise<boolean> {
+    return this.page.locator('#content').getByRole('heading', { name: 'My Account' }).isVisible();
+  }
+
+  /** Verifica que el toggle del menú de cuenta esté visible (usuario logueado) */
+  async isAccountDropdownVisible(): Promise<boolean> {
+    return this.page.locator('#top-links .dropdown-toggle').first().isVisible();
+  }
+
   async loginWithInvalidCredentials(email: string, password: string): Promise<void> {
-    await expect(this.emailInput).toBeVisible({ timeout: 20_000 });
+    await this.emailInput.waitFor({ state: 'visible', timeout: 20_000 });
     await this.emailInput.fill(email);
     await this.passwordInput.fill(password);
     await this.submitButton.click();
@@ -37,7 +58,7 @@ export class LoginPage extends BasePage {
   }
 
   async getErrorMessage(): Promise<string> {
-    await expect(this.errorAlert).toBeVisible({ timeout: 10_000 });
+    await this.errorAlert.waitFor({ state: 'visible', timeout: 10_000 });
     return (await this.errorAlert.textContent()) ?? '';
   }
 
@@ -47,7 +68,7 @@ export class LoginPage extends BasePage {
     attempts: number,
   ): Promise<void> {
     for (let i = 0; i < attempts; i++) {
-      await expect(this.emailInput).toBeVisible({ timeout: 20_000 });
+      await this.emailInput.waitFor({ state: 'visible', timeout: 20_000 });
       await this.emailInput.fill(email);
       await this.passwordInput.fill(wrongPassword);
       await this.submitButton.click();

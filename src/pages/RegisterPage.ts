@@ -1,4 +1,4 @@
-import { Page, expect } from '@playwright/test';
+import { Page } from 'playwright';
 import { BasePage } from './BasePage';
 
 export interface RegistrationData {
@@ -32,11 +32,11 @@ export class RegisterPage extends BasePage {
   async open(): Promise<void> {
     await this.navigate('/index.php?route=account/register');
     // Esperar a que el formulario esté disponible post-Cloudflare
-    await expect(this.firstNameInput).toBeVisible({ timeout: 30_000 });
+    await this.firstNameInput.waitFor({ state: 'visible', timeout: 30_000 });
   }
 
   async fillRegistrationForm(data: RegistrationData): Promise<void> {
-    await expect(this.firstNameInput).toBeVisible({ timeout: 30_000 });
+    await this.firstNameInput.waitFor({ state: 'visible', timeout: 30_000 });
     await this.firstNameInput.fill(data.firstName);
     await this.lastNameInput.fill(data.lastName);
     await this.emailInput.fill(data.email);
@@ -46,7 +46,7 @@ export class RegisterPage extends BasePage {
   }
 
   async acceptPrivacyPolicy(): Promise<void> {
-    await expect(this.privacyPolicyCheckbox).toBeVisible({ timeout: 10_000 });
+    await this.privacyPolicyCheckbox.waitFor({ state: 'visible', timeout: 10_000 });
     await this.privacyPolicyCheckbox.check();
   }
 
@@ -56,7 +56,7 @@ export class RegisterPage extends BasePage {
   }
 
   async getSuccessMessage(): Promise<string> {
-    await expect(this.successContent).toBeVisible({ timeout: 15_000 });
+    await this.successContent.waitFor({ state: 'visible', timeout: 15_000 });
     return (await this.successContent.textContent()) ?? '';
   }
 
@@ -66,7 +66,7 @@ export class RegisterPage extends BasePage {
   }
 
   async getEmailErrorMessage(): Promise<string> {
-    await expect(this.emailErrorAlert).toBeVisible({ timeout: 10_000 });
+    await this.emailErrorAlert.waitFor({ state: 'visible', timeout: 10_000 });
     return (await this.emailErrorAlert.textContent()) ?? '';
   }
 

@@ -28,9 +28,9 @@ When(
   async function (this: CustomWorld, email: string, password: string) {
     this.testData['email'] = email;
     this.testData['password'] = password;
-    // Usar selectores por ID verificados en opencart.abstracta.us
-    await this.page.locator('#input-email').fill(email);
-    await this.page.locator('#input-password').fill(password);
+    // Delegar al Page Object — los selectores viven en LoginPage, no aquí
+    const loginPage = new LoginPage(this.page);
+    await loginPage.fillCredentials(email, password);
   },
 );
 
@@ -38,8 +38,9 @@ When('hace clic en el botón de iniciar sesión', async function (this: CustomWo
   // Medir solo el tiempo de autenticación del servidor:
   //   clic → servidor autentica → 302 redirect → URL cambia a account/account
   // Promise.race resuelve en el primer evento: éxito (URL) o error (alert de lockout).
+  const loginPage = new LoginPage(this.page);
   this.startTime = Date.now();
-  await this.page.locator('input[type="submit"]').first().click();
+  await loginPage.submitBtn.click();
 
   const outcome = await Promise.race([
     this.page
@@ -49,8 +50,7 @@ When('hace clic en el botón de iniciar sesión', async function (this: CustomWo
       })
       .then(() => 'success' as const),
 
-    this.page
-      .locator('.alert-danger')
+    loginPage.errorAlertLocator
       .waitFor({ state: 'visible', timeout: 20_000 })
       .then(() => 'error' as const),
   ]);
@@ -59,7 +59,7 @@ When('hace clic en el botón de iniciar sesión', async function (this: CustomWo
   this.testData['loginElapsedMs'] = Date.now() - this.startTime;
 
   if (outcome === 'error') {
-    const alertText = (await this.page.locator('.alert-danger').textContent().catch(() => '')) ?? '';
+    const alertText = await loginPage.getErrorMessage().catch(() => '');
     throw new Error(
       `La cuenta esta BLOQUEADA o las credenciales son incorrectas.\n` +
       `Mensaje del sistema: ${alertText.trim()}`,
@@ -68,17 +68,18 @@ When('hace clic en el botón de iniciar sesión', async function (this: CustomWo
 });
 
 Then('el sistema concede acceso al panel principal', async function (this: CustomWorld) {
-  // Restringir al #content para evitar el h5 del footer que también dice "My Account"
-  const heading = this.page.locator('#content').getByRole('heading', { name: 'My Account' });
-  await expect(heading).toBeVisible({ timeout: 15_000 });
+  // Delegar al Page Object — HomePage encapsula los selectores del dashboard
+  const loginPage = new LoginPage(this.page);
+  const visible = await loginPage.isAccountPageVisible();
+  expect(visible, 'El heading "My Account" no fue encontrado en #content').toBe(true);
 });
 
 Then('el nombre del usuario es visible en la pantalla', async function (this: CustomWorld) {
-  // Cuando está logueado, #top-links muestra el botón desplegable "My Account".
-  // El enlace "Logout" está dentro del dropdown (oculto hasta abrir el menú),
-  // así que verificamos el toggle visible que confirma que la sesión está activa.
-  const myAccountToggle = this.page.locator('#top-links .dropdown-toggle').first();
-  await expect(myAccountToggle).toBeVisible({ timeout: 10_000 });
+  // Cuando está logueado, #top-links muestra el dropdown "My Account" visible.
+  // El enlace "Logout" está dentro del dropdown cerrado, así que verificamos el toggle.
+  const loginPage = new LoginPage(this.page);
+  const visible = await loginPage.isAccountDropdownVisible();
+  expect(visible, 'El dropdown de cuenta no está visible — ¿sesión iniciada?').toBe(true);
 });
 
 Then(
@@ -172,9 +173,9 @@ Then(
     const email    = this.testData['bruteEmail'] as string;  // cuenta desechable
     const password = this.testData['brutePass']  as string;  // contraseña real de esa cuenta
 
-    await this.page.locator('#input-email').fill(email);
-    await this.page.locator('#input-password').fill(password);
-    await this.page.locator('input[type="submit"]').first().click();
+    // Delegar al Page Object — selectores encapsulados en LoginPage
+    await loginPage.fillCredentials(email, password);
+    await loginPage.submitBtn.click();
     await this.page.waitForLoadState('load');
 
     const currentUrl = this.page.url();
@@ -187,8 +188,14 @@ Then(
       );
     }
 
-    const errorAlert = this.page.locator('.alert-danger');
-    await expect(errorAlert).toBeVisible({ timeout: 10_000 });
+    // Verificar que haya mensaje de error — delegado al PO
+    const isLocked = await loginPage.isLockedOut();
+    const errorMsg = isLocked ? await loginPage.getErrorMessage() : '';
+    expect(
+      isLocked,
+      `[DEF-001] No se encontró mensaje de bloqueo en intento ${_attemptNumber}. ` +
+      `Mensaje actual: "${errorMsg.trim()}"`,
+    ).toBe(true);
   },
 );
 
@@ -246,10 +253,11 @@ Then('el sistema confirma el registro exitoso', async function (this: CustomWorl
 Then(
   'el usuario es redirigido a su panel de bienvenida',
   async function (this: CustomWorld) {
-    // opencart.abstracta.us muestra "Congratulations!" en el contenido de account/success
-    await expect(
-      this.page.locator('#content', { hasText: /congratulations/i }),
-    ).toBeVisible({ timeout: 15_000 });
+    // opencart.abstracta.us muestra "Congratulations!" en account/success
+    // Delegar la verificación al Page Object de registro
+    const registerPage = new RegisterPage(this.page);
+    const successMsg = await registerPage.getSuccessMessage();
+    expect(successMsg.toLowerCase()).toContain('congratulations');
   },
 );
 
@@ -293,9 +301,9 @@ When(
 Then(
   'el sistema debe mostrar un mensaje de error de correo duplicado',
   async function (this: CustomWorld) {
-    const errorAlert = this.page.locator('.alert-danger');
-    await expect(errorAlert).toBeVisible({ timeout: 10_000 });
-    const errorText = (await errorAlert.textContent()) ?? '';
+    // Delegar al Page Object — getEmailErrorMessage() encapsula el selector .alert-danger
+    const registerPage = new RegisterPage(this.page);
+    const errorText = await registerPage.getEmailErrorMessage();
     const hasEmailError =
       errorText.toLowerCase().includes('already') ||
       errorText.toLowerCase().includes('registr') ||

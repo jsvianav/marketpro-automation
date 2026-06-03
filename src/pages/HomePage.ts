@@ -1,4 +1,4 @@
-import { Page, expect } from '@playwright/test';
+import { Page } from 'playwright';
 import { BasePage } from './BasePage';
 
 export class HomePage extends BasePage {
@@ -18,12 +18,12 @@ export class HomePage extends BasePage {
   }
 
   async getAccountName(): Promise<string> {
-    await expect(this.myAccountDropdown).toBeVisible();
+    await this.myAccountDropdown.waitFor({ state: 'visible' });
     return (await this.myAccountDropdown.textContent()) ?? '';
   }
 
   async getWelcomeText(): Promise<string> {
-    await expect(this.accountHeading).toBeVisible();
+    await this.accountHeading.waitFor({ state: 'visible' });
     return (await this.accountHeading.textContent()) ?? '';
   }
 
