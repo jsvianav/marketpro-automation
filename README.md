@@ -104,7 +104,7 @@ marketpro-automation/
 - HU/Caso: US-203 / TC-F03-003
 - Valida: que el sistema bloquee la cuenta tras 5 intentos fallidos
 - Resultado esperado: PASS (el sitio SI implementa lockout)
-- Nota: usa una cuenta desechable por ejecucion para no afectar test5@testing.com
+- Nota: usa una cuenta desechable por ejecucion para no afectar marketpro@test.com
 
 ### E-P-01 — Registro exitoso con datos del Excel (POSITIVO)
 - Riesgo: R-01 Autenticacion (P=9)
@@ -129,23 +129,23 @@ marketpro-automation/
 
 ## Cuentas de prueba
 
-| Variable env    | Email                              | Password         | Usada en      |
-|-----------------|------------------------------------|------------------|---------------|
-| TEST_EMAIL      | test5@testing.com                  | test5@testing.com| E-P-03        |
-| CAMPAIGN_EMAIL  | marketpro_1780415921125@test.com   | MarketPro@2024!  | E-P-05        |
+| Variable env    | Email                 | Password        | Usada en      |
+|-----------------|-----------------------|-----------------|---------------|
+| TEST_EMAIL      | marketpro@test.com    | Marketpro123!   | E-P-03, E-N-03, E-N-01 |
+| CAMPAIGN_EMAIL  | marketpro@test.com    | Marketpro123!   | E-P-05        |
 
 Nota: E-N-03 crea una cuenta desechable (bruteforce_<timestamp>@test.com)
-por cada ejecucion, de modo que nunca bloquea test5@testing.com.
+por cada ejecucion, de modo que nunca bloquea marketpro@test.com.
 
 ---
 
 ## Nota sobre lockout de E-P-03
 
 El sitio bloquea cuentas 1 hora tras 5 intentos fallidos.
-Si test5@testing.com esta bloqueada, E-P-03 falla con mensaje claro.
+Si marketpro@test.com esta bloqueada, E-P-03 falla con mensaje claro.
 
 Para evitarlo: esperar 1 hora entre ejecuciones completas del suite.
-E-N-03 ya NO bloquea test5 (usa cuenta temporal propia).
+E-N-03 NO bloquea marketpro@test.com (usa cuenta desechable propia por cada run).
 
 ---
 
@@ -155,6 +155,6 @@ El reporte se genera en reports/report.html. Abrirlo en cualquier navegador.
 
 - Verde (Passed): el escenario cumplio todos los criterios de aceptacion.
 - Rojo (Failed):
-  - Si es E-P-03: la cuenta test5 esta en lockout temporal. Esperar 1 hora.
+  - Si es E-P-03: la cuenta marketpro@test.com puede estar en lockout temporal. Esperar 1 hora.
   - Si es cualquier otro: ver el step fallido y el screenshot adjunto en el reporte.
 - Los screenshots se capturan automaticamente al fallar y quedan embebidos en el reporte.

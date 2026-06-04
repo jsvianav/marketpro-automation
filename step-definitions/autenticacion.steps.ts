@@ -106,7 +106,7 @@ Then(
 Given(
   'el usuario de prueba está registrado en el sistema',
   async function (this: CustomWorld) {
-    // E-N-03 usa una cuenta DESECHABLE con timestamp para no bloquear test5@testing.com.
+    // E-N-03 usa una cuenta DESECHABLE con timestamp para no bloquear marketpro@test.com.
     // Así E-P-03 puede correr en el mismo suite sin verse afectado por el lockout de E-N-03.
     const bruteEmail = `bruteforce_${Date.now()}@test.com`;
     const brutePass  = 'BruteSetup@2024!';

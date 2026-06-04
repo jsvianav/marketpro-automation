@@ -13,7 +13,7 @@ void CustomWorld;
 
 Given('el marketer ha iniciado sesión en MarketPro+', async function (this: CustomWorld) {
   // E-P-05 usa una cuenta dedicada (CAMPAIGN_EMAIL) para no verse afectado
-  // cuando E-N-03 bloquea la cuenta test5@testing.com en el mismo run.
+  // cuando E-N-03 bloquea la cuenta principal en el mismo run.
   const email = process.env['CAMPAIGN_EMAIL'] ?? process.env['TEST_EMAIL'] ?? 'marketpro@test.com';
   const password = process.env['CAMPAIGN_PASSWORD'] ?? process.env['TEST_PASSWORD'] ?? 'Marketpro123!';
   await this.loginAs(email, password);
