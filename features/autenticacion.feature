@@ -10,9 +10,9 @@ Feature: Autenticación de usuarios en MarketPro+
   # ─────────────────────────────────────────────────────────────────────────
   @positivo @login @E-P-03
   Scenario: Login exitoso con credenciales válidas
-    Given el usuario registrado "marketpro@test.com" con contraseña "Marketpro123!" existe en el sistema
+    Given el usuario registrado existe en el sistema
     When navega a la página de login de MarketPro+
-    And ingresa el correo "marketpro@test.com" y la contraseña "Marketpro123!"
+    And ingresa las credenciales del usuario de prueba
     And hace clic en el botón de iniciar sesión
     Then el sistema concede acceso al panel principal
     And el nombre del usuario es visible en la pantalla
@@ -25,7 +25,7 @@ Feature: Autenticación de usuarios en MarketPro+
   # ─────────────────────────────────────────────────────────────────────────
   @negativo @login @E-N-03 @DEF-001
   Scenario: El sistema debe bloquear la cuenta tras 5 intentos fallidos de login
-    Given el usuario "marketpro@test.com" está registrado en el sistema
+    Given el usuario de prueba está registrado en el sistema
     When intenta iniciar sesión 5 veces consecutivas con la contraseña incorrecta "contrasena_incorrecta_123"
     Then el sistema debe mostrar un mensaje de bloqueo de cuenta
     And el usuario no puede iniciar sesión con credenciales correctas en el intento número 6
@@ -55,8 +55,8 @@ Feature: Autenticación de usuarios en MarketPro+
   # ─────────────────────────────────────────────────────────────────────────
   @negativo @registro @E-N-01 @DEF-003
   Scenario: El sistema debe rechazar el registro con un correo ya existente
-    Given el correo "marketpro@test.com" ya está registrado en el sistema
-    When un nuevo usuario intenta registrarse con el mismo correo "marketpro@test.com"
+    Given el correo del usuario de prueba ya está registrado en el sistema
+    When un nuevo usuario intenta registrarse con el mismo correo del usuario de prueba
     Then el sistema debe mostrar un mensaje de error de correo duplicado
     And no debe crear una segunda cuenta con ese correo
     And el formulario debe permanecer en la página de registro

@@ -9,12 +9,18 @@ import { ExcelHelper } from '../src/utils/ExcelHelper';
 // (que solo aparece como anotación de tipo en los callbacks de step).
 void CustomWorld;
 
+// Credenciales leídas del .env — si no hay .env, usan los valores por defecto
+const TEST_EMAIL    = process.env['TEST_EMAIL']    ?? 'marketpro@test.com';
+const TEST_PASSWORD = process.env['TEST_PASSWORD'] ?? 'Marketpro123!';
+
 // ─── E-P-03: Login exitoso ────────────────────────────────────────────────
 
 Given(
-  'el usuario registrado {string} con contraseña {string} existe en el sistema',
-  async function (this: CustomWorld, _email: string, _password: string) {
-    // Precondición documentada — la cuenta ya existe en el sitio de prueba
+  'el usuario registrado existe en el sistema',
+  async function (this: CustomWorld) {
+    // Precondición documentada — la cuenta definida en TEST_EMAIL ya existe
+    this.testData['email']    = TEST_EMAIL;
+    this.testData['password'] = TEST_PASSWORD;
   },
 );
 
@@ -24,11 +30,11 @@ When('navega a la página de login de MarketPro+', async function (this: CustomW
 });
 
 When(
-  'ingresa el correo {string} y la contraseña {string}',
-  async function (this: CustomWorld, email: string, password: string) {
-    this.testData['email'] = email;
-    this.testData['password'] = password;
-    // Delegar al Page Object — los selectores viven en LoginPage, no aquí
+  'ingresa las credenciales del usuario de prueba',
+  async function (this: CustomWorld) {
+    // Lee las credenciales guardadas en el Given (vienen del .env)
+    const email    = this.testData['email']    as string;
+    const password = this.testData['password'] as string;
     const loginPage = new LoginPage(this.page);
     await loginPage.fillCredentials(email, password);
   },
@@ -98,8 +104,8 @@ Then(
 // ─── E-N-03: Bloqueo por fuerza bruta (documenta DEF-001) ────────────────
 
 Given(
-  'el usuario {string} está registrado en el sistema',
-  async function (this: CustomWorld, _email: string) {
+  'el usuario de prueba está registrado en el sistema',
+  async function (this: CustomWorld) {
     // E-N-03 usa una cuenta DESECHABLE con timestamp para no bloquear test5@testing.com.
     // Así E-P-03 puede correr en el mismo suite sin verse afectado por el lockout de E-N-03.
     const bruteEmail = `bruteforce_${Date.now()}@test.com`;
@@ -274,15 +280,17 @@ Then(
 // ─── E-N-01: Rechazo correo duplicado (documenta DEF-003) ────────────────
 
 Given(
-  'el correo {string} ya está registrado en el sistema',
-  async function (this: CustomWorld, email: string) {
-    this.testData['duplicateEmail'] = email;
+  'el correo del usuario de prueba ya está registrado en el sistema',
+  async function (this: CustomWorld) {
+    // Lee el email del .env — misma fuente que E-P-03
+    this.testData['duplicateEmail'] = TEST_EMAIL;
   },
 );
 
 When(
-  'un nuevo usuario intenta registrarse con el mismo correo {string}',
-  async function (this: CustomWorld, email: string) {
+  'un nuevo usuario intenta registrarse con el mismo correo del usuario de prueba',
+  async function (this: CustomWorld) {
+    const email = this.testData['duplicateEmail'] as string;
     const registerPage = new RegisterPage(this.page);
     await registerPage.open();
     await registerPage.fillRegistrationForm({
