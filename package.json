@@ -8,6 +8,7 @@
     "test:autenticacion": "cucumber-js --tags @autenticacion",
     "test:campanas": "cucumber-js --tags @campanas",
     "create-data": "ts-node scripts/create-excel.ts",
+    "reset-excel": "ts-node scripts/reset-excel.ts",
     "lint": "tsc --noEmit"
   },
   "devDependencies": {
