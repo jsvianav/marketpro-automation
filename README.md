@@ -9,8 +9,6 @@ Metodologia: Risk-Based Testing (ISTQB) / ISO/IEC/IEEE 29119
 
 https://opencart.abstracta.us — instancia publica de OpenCart sin proteccion anti-bot.
 
-IMPORTANTE: NO usar demo.opencart.com — ese sitio tiene Cloudflare Bot Fight Mode
-que bloquea Playwright headless.
 
 ---
 
