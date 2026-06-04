@@ -73,4 +73,20 @@ export class RegisterPage extends BasePage {
   async isStillOnRegistrationPage(): Promise<boolean> {
     return this.page.url().includes('account/register');
   }
+
+  /**
+   * Registra una cuenta nueva y hace logout inmediato.
+   * Usado por E-N-03 para crear cuentas desechables de fuerza bruta.
+   * OpenCart auto-loguea al usuario tras el registro, así que el logout
+   * es necesario para poder llegar a la página de login en el siguiente step.
+   */
+  async registerAndLogout(data: RegistrationData, baseUrl: string): Promise<void> {
+    await this.open();
+    await this.fillRegistrationForm(data);
+    await this.acceptPrivacyPolicy();
+    await this.continueButton.click();
+    await this.page.waitForLoadState('load');
+    await this.page.goto(`${baseUrl}/index.php?route=account/logout`);
+    await this.page.waitForLoadState('load');
+  }
 }

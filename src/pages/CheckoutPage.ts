@@ -39,6 +39,7 @@ export class CheckoutPage extends BasePage {
   private readonly confirmButton = this.page.locator('#button-confirm');
 
   private readonly successHeading = this.page.locator('#content', { hasText: /order has been placed/i });
+  private readonly firstOrderRow = this.page.locator('table tbody tr').first();
 
   constructor(page: Page) {
     super(page);
@@ -123,10 +124,16 @@ export class CheckoutPage extends BasePage {
     await this.successHeading.waitFor({ state: 'visible', timeout: 15_000 });
     await this.navigate('/index.php?route=account/order');
 
-    const firstRow = this.page.locator('table tbody tr').first();
-    await firstRow.waitFor({ state: 'visible', timeout: 15_000 });
-    const rowText = (await firstRow.textContent()) ?? '';
+    await this.firstOrderRow.waitFor({ state: 'visible', timeout: 15_000 });
+    const rowText = (await this.firstOrderRow.textContent()) ?? '';
     const match = rowText.match(/#(\d+)/);
     return match ? match[1] : 'N/A';
+  }
+
+  /** Verifica que el número de orden esté visible en la primera fila del historial */
+  async isOrderInHistory(orderNumber: string): Promise<boolean> {
+    await this.firstOrderRow.waitFor({ state: 'visible', timeout: 10_000 });
+    const rowText = (await this.firstOrderRow.textContent()) ?? '';
+    return rowText.includes(orderNumber);
   }
 }

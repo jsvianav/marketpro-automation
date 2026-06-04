@@ -103,7 +103,7 @@ Then(
   async function (this: CustomWorld) {
     const orderNumber = this.testData['orderNumber'] as string;
 
-    // Guardar resultado en Excel
+    // Guardar resultado en Excel — escritura de vuelta al archivo de datos
     const excel = new ExcelHelper();
     await excel.writeResult('Activacion', 1, 'numero_confirmacion', orderNumber);
     await excel.writeResult('Activacion', 1, 'fecha_activacion', new Date().toISOString());
@@ -111,10 +111,9 @@ Then(
     // Verificar que estamos en la página de historial de pedidos
     expect(this.page.url()).toContain('account/order');
 
-    // El número de orden debe aparecer en la primera fila de la tabla
-    const orderRow = this.page.locator('table tbody tr').first();
-    await expect(orderRow).toBeVisible({ timeout: 10_000 });
-    const rowText = (await orderRow.textContent()) ?? '';
-    expect(rowText).toContain(orderNumber);
+    // Delegar al Page Object — CheckoutPage.isOrderInHistory() encapsula el selector
+    const checkoutPage = new CheckoutPage(this.page);
+    const inHistory = await checkoutPage.isOrderInHistory(orderNumber);
+    expect(inHistory, `La orden #${orderNumber} no aparece en el historial`).toBe(true);
   },
 );

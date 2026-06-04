@@ -111,27 +111,24 @@ Given(
     const bruteEmail = `bruteforce_${Date.now()}@test.com`;
     const brutePass  = 'BruteSetup@2024!';
 
-    // Crear la cuenta desechable para los intentos de fuerza bruta
-    await this.page.goto(`${this.baseUrl}/index.php?route=account/register`);
-    await this.page.waitForLoadState('load');
-    await this.page.locator('#input-firstname').fill('Brute');
-    await this.page.locator('#input-lastname').fill('Force');
-    await this.page.locator('#input-email').fill(bruteEmail);
-    await this.page.locator('#input-telephone').fill('3000000000');
-    await this.page.locator('#input-password').fill(brutePass);
-    await this.page.locator('#input-confirm').fill(brutePass);
-    await this.page.locator('input[name="agree"]').check();
-    await this.page.locator('input[type="submit"]').first().click();
-    await this.page.waitForLoadState('load');
+    // Delegar al Page Object — RegisterPage.registerAndLogout() encapsula
+    // todos los selectores del formulario y el logout posterior
+    const registerPage = new RegisterPage(this.page);
+    await registerPage.registerAndLogout(
+      {
+        firstName: 'Brute',
+        lastName: 'Force',
+        email: bruteEmail,
+        telephone: '3000000000',
+        password: brutePass,
+        confirmPassword: brutePass,
+      },
+      this.baseUrl,
+    );
 
     // Almacenar credenciales de la cuenta desechable para los siguientes steps
     this.testData['bruteEmail'] = bruteEmail;
     this.testData['brutePass']  = brutePass;
-
-    // Cerrar sesión: el registro en OpenCart deja al usuario logueado automáticamente,
-    // lo que causaría que la página de login redireccione a account/account.
-    await this.page.goto(`${this.baseUrl}/index.php?route=account/logout`);
-    await this.page.waitForLoadState('load');
   },
 );
 
